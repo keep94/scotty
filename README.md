@@ -1,4 +1,4 @@
-# Scotty
+# Scotty (JTWASHERE MMMK)
 Scotty is a high performance, scalable collector for the
 [tricorder](https://github.com/Symantec/tricorder) metrics publishing library.
 Scotty provides a RESTful API to grab the latest polled metrics, and it can
