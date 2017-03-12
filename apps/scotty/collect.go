@@ -43,6 +43,10 @@ var (
 		"dataCenter",
 		"",
 		"Required for CIS writing: The data center name")
+	fCisBufferSize = flag.Int(
+		"cisBufferSize",
+		40,
+		"CIS Buffer Size")
 )
 
 type byHostName messages.ErrorList
@@ -278,12 +282,13 @@ func startCollector(
 		"json":      jsonCollectionTimesDist,
 	}
 
-	var cisClient *cis.Client
+	var bulkCisClient *cis.Buffered
 	var cisRegex *regexp.Regexp
 	var cisQueue *keyedqueue.Queue
 
 	if *fCisEndpoint != "" && *fDataCenter != "" {
 		var err error
+		var cisClient *cis.Client
 		// TODO: move to config file when ready
 		if strings.HasPrefix(*fCisEndpoint, "debug:") {
 			cisClient, err = cis.NewClient(
@@ -298,6 +303,7 @@ func startCollector(
 				DataCenter: *fDataCenter,
 			})
 		}
+		bulkCisClient = cis.NewBuffered(*fCisBufferSize, cisClient)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -361,7 +367,7 @@ func startCollector(
 		}
 	}()
 
-	if cisQueue != nil && cisClient != nil {
+	if cisQueue != nil && bulkCisClient != nil {
 		if err := tricorder.RegisterMetric(
 			"cis/queueSize",
 			cisQueue.Len,
@@ -414,6 +420,14 @@ func startCollector(
 		go func() {
 			lastTimeStampByKey := make(map[interface{}]time.Time)
 			for {
+				if cisQueue.Len() == 0 {
+					numWritten, err := bulkCisClient.Flush()
+					if err != nil {
+						lastWriteError = err.Error()
+					} else {
+						successfulWrites += uint64(numWritten)
+					}
+				}
 				stat := cisQueue.Remove().(*cis.Stats)
 				key := stat.Key()
 				if lastTimeStamp, ok := lastTimeStampByKey[key]; ok {
@@ -425,10 +439,11 @@ func startCollector(
 				}
 				lastTimeStampByKey[key] = stat.TimeStamp
 				writeStartTime := time.Now()
-				if err := cisClient.Write(stat); err != nil {
+				numWritten, err := bulkCisClient.Write(*stat)
+				if err != nil {
 					lastWriteError = err.Error()
 				} else {
-					successfulWrites++
+					successfulWrites += uint64(numWritten)
 				}
 				totalWrites++
 				writeTimesDist.Add(time.Since(writeStartTime))
