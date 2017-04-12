@@ -93,6 +93,10 @@ if [ -n "$CONSUL_NAMESPACE" ]; then
 	PROG_ARGS="$PROG_ARGS -coordinator=$CONSUL_NAMESPACE"
 fi
 
+if [ -n "$CIS_SLEEP" ]; then
+    PROG_ARGS="$PROG_ARGS -cisSleep=$CIS_SLEEP"
+fi
+
 do_start ()
 {
     start-stop-daemon --start --quiet --pidfile "$PIDFILE" \

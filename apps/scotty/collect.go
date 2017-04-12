@@ -47,6 +47,10 @@ var (
 		"cisBufferSize",
 		40,
 		"CIS Buffer Size")
+	fCisSleep = flag.Duration(
+		"cisSleep",
+		0,
+		"Sleep time between writes")
 )
 
 type byHostName messages.ErrorList
@@ -426,6 +430,9 @@ func startCollector(
 						lastWriteError = err.Error()
 					} else {
 						successfulWrites += uint64(numWritten)
+					}
+					if *fCisSleep > 0 {
+						time.Sleep(*fCisSleep)
 					}
 				}
 				stat := cisQueue.Remove().(*cis.Stats)
