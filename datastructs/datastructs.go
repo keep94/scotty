@@ -235,7 +235,7 @@ func (a *ApplicationStatuses) _markHostsActiveExclusively(
 			// If new endpoint
 			if activeEndpoint == nil {
 				activeEndpoint = scotty.NewEndpointWithConnector(
-					hp.Host, hp.Port, apps[j].Connectors())
+					hp.Host, hp.Port, apps[j].Connectors(), a.sharer)
 				a.byHostPort[hp] = activeEndpoint
 				a.byEndpoint[activeEndpoint] = a.newApplicationStatus(
 					activeEndpoint, activeHosts[i].AwsMetadata)

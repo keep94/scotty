@@ -2,6 +2,7 @@
 package scotty
 
 import (
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/scotty/lib/preference"
 	"github.com/Symantec/scotty/metrics"
 	"github.com/Symantec/scotty/sources"
@@ -133,21 +134,26 @@ type Endpoint struct {
 	host           string
 	port           uint
 	connectors     []*connectorType
+	sharer         *cpusharer.FifoCpuSharer
 	onePollAtATime chan bool
 	// These fields read and changed only by goroutine that has the
 	// onePollAtATime semaphore
 	state   *State
 	errored bool
 	lock    sync.Mutex
-	// These fields ready and changed by multiple goroutines
+	// These fields read and changed by multiple goroutines
 	connectorPreference *preference.Preference
 }
 
 // NewEndpointWithConnector creates a new endpoint for given host, port
 // and connector.
 func NewEndpointWithConnector(
-	hostname string, port uint, connectors []sources.Connector) *Endpoint {
-	return newEndpoint(hostname, port, connectors)
+	hostname string,
+	port uint,
+	connectors []sources.Connector,
+	sharer *cpusharer.FifoCpuSharer) *Endpoint {
+
+	return newEndpoint(hostname, port, connectors, sharer)
 }
 
 // HostName returns the host name of the endpoint.
@@ -173,30 +179,4 @@ func (e *Endpoint) ConnectorName() string {
 // logger logs collection events for this polling
 func (e *Endpoint) Poll(sweepStartTime time.Time, logger Logger) {
 	e.poll(sweepStartTime, logger)
-}
-
-// SetConcurrentPolls sets the maximum number of concurrent polls.
-// Zero means no limit.
-// Call SetConcurrentPolls at the beginning of the main() function before
-// calling Endpoint.Poll
-func SetConcurrentPolls(x uint) {
-	setConcurrentPolls(x)
-}
-
-// ConcurrentPolls returns the maximum number of concurrent polls.
-// Default is 2 * number of CPUs. A return of 0 means no limit.
-func ConcurrentPolls() uint {
-	return concurrentPolls
-}
-
-// SetConcurrentConnects sets the maximum number of concurrent connects.
-// Call SetConcurrentConnects at the beginning of the main() function before
-// calling Endpoint.Poll
-func SetConcurrentConnects(x uint) {
-	setConcurrentConnects(x)
-}
-
-// ConcurrentConnects returns the maximum number of concurrent connects.
-func ConcurrentConnects() uint {
-	return concurrentConnects
 }

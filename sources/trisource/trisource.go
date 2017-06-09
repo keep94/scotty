@@ -2,6 +2,7 @@ package trisource
 
 import (
 	"fmt"
+	"github.com/Symantec/Dominator/lib/net"
 	"github.com/Symantec/Dominator/lib/rpcclientpool"
 	"github.com/Symantec/scotty/metrics"
 	"github.com/Symantec/scotty/sources"
@@ -23,6 +24,16 @@ func (c connectorType) NewResource(
 		fmt.Sprintf("%s:%d", host, port),
 		true,
 		"")
+}
+
+func (c connectorType) NewResourceWithDialer(
+	host string, port uint, dialer net.Dialer) sources.Resource {
+	return rpcclientpool.NewWithDialer(
+		"tcp",
+		fmt.Sprintf("%s:%d", host, port),
+		true,
+		"",
+		dialer)
 }
 
 func (c connectorType) Connect(host string, port uint) (sources.Poller, error) {

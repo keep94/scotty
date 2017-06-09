@@ -2,6 +2,7 @@
 package datastructs
 
 import (
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/Dominator/lib/mdb"
 	"github.com/Symantec/scotty"
 	"github.com/Symantec/scotty/chpipeline"
@@ -183,6 +184,7 @@ func ByHostAndName(list []*ApplicationStatus) {
 // ApplicationStatuses is thread safe representation of application statuses
 type ApplicationStatuses struct {
 	appList *ApplicationList
+	sharer  *cpusharer.FifoCpuSharer
 	// A function must hold this lock when changing the status
 	// (active vs. inactive) of the endpoints to ensure that when it
 	// returns, the status of each endpoint matches the status of the
@@ -205,9 +207,13 @@ type ApplicationStatuses struct {
 // Since the newly created instance will create new store.Store instances
 // whenever active machines change, caller should give up any reference it
 // has to astore and use the Store() method to get the current store.
-func NewApplicationStatuses(appList *ApplicationList, astore *store.Store) *ApplicationStatuses {
+func NewApplicationStatuses(
+	appList *ApplicationList,
+	astore *store.Store,
+	sharer *cpusharer.FifoCpuSharer) *ApplicationStatuses {
 	return &ApplicationStatuses{
 		appList:      appList,
+		sharer:       sharer,
 		byEndpoint:   make(map[*scotty.Endpoint]*ApplicationStatus),
 		byHostPort:   make(map[hostAndPort]*scotty.Endpoint),
 		currentStore: astore,

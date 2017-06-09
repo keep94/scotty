@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"errors"
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/scotty"
 	"github.com/Symantec/scotty/metrics"
 	"github.com/Symantec/scotty/sources"
@@ -20,14 +21,15 @@ import (
 )
 
 var (
+	sharer     = cpusharer.NewFifoCpuSharer()
 	kEndpoint0 = scotty.NewEndpointWithConnector(
-		"host1", 1001, sources.ConnectorList{trisource.GetConnector()})
+		"host1", 1001, sources.ConnectorList{trisource.GetConnector()}, sharer)
 	kEndpoint1 = scotty.NewEndpointWithConnector(
-		"host2", 1002, sources.ConnectorList{trisource.GetConnector()})
+		"host2", 1002, sources.ConnectorList{trisource.GetConnector()}, sharer)
 	kEndpoint2 = scotty.NewEndpointWithConnector(
-		"host3", 1001, sources.ConnectorList{trisource.GetConnector()})
+		"host3", 1001, sources.ConnectorList{trisource.GetConnector()}, sharer)
 	kEndpoint3 = scotty.NewEndpointWithConnector(
-		"host4", 1002, sources.ConnectorList{trisource.GetConnector()})
+		"host4", 1002, sources.ConnectorList{trisource.GetConnector()}, sharer)
 	kError          = errors.New("An error")
 	kUsualTimeStamp = time.Date(2016, 7, 8, 14, 11, 0, 0, time.Local)
 	kNoMetaData     = newExpectedMetaData()

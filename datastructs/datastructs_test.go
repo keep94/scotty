@@ -3,6 +3,7 @@ package datastructs
 import (
 	"bytes"
 	"fmt"
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/Dominator/lib/mdb"
 	"github.com/Symantec/scotty"
 	"github.com/Symantec/scotty/metrics"
@@ -196,7 +197,8 @@ func TestCloudWatchRefreshRate(t *testing.T) {
 		appList := alBuilder.Build()
 		appStatus := NewApplicationStatuses(
 			appList,
-			newStore(t, "TestCloudWatchRefreshRate", 1, 100, 1.0, 10))
+			newStore(t, "TestCloudWatchRefreshRate", 1, 100, 1.0, 10),
+			cpusharer.NewFifoCpuSharer())
 		appStatus.MarkHostsActiveExclusively(
 			104.25,
 			[]mdb.Machine{
@@ -274,7 +276,8 @@ func TestInstanceIdAccountId(t *testing.T) {
 	appList := alBuilder.Build()
 	appStatus := NewApplicationStatuses(
 		appList,
-		newStore(t, "TestInstanceId", 1, 100, 1.0, 10))
+		newStore(t, "TestInstanceId", 1, 100, 1.0, 10),
+		cpusharer.NewFifoCpuSharer())
 	appStatus.MarkHostsActiveExclusively(
 		104.25,
 		[]mdb.Machine{
@@ -405,7 +408,8 @@ func TestMarkHostsActiveExclusively(t *testing.T) {
 	appList := alBuilder.Build()
 	appStatus := NewApplicationStatuses(
 		appList,
-		newStore(t, "TestMarkHostsActiveExclusively", 1, 100, 1.0, 10))
+		newStore(t, "TestMarkHostsActiveExclusively", 1, 100, 1.0, 10),
+		cpusharer.NewFifoCpuSharer())
 	appStatus.MarkHostsActiveExclusively(
 		92.5,
 		toMachines([]string{"host1", "host2", "host3"}))
@@ -589,7 +593,8 @@ func TestHighPriorityEviction(t *testing.T) {
 	appStatus := NewApplicationStatuses(
 		appList,
 		newStore(
-			t, "TestHighPriorityEviction", 1, 6, 1.0, 10))
+			t, "TestHighPriorityEviction", 1, 6, 1.0, 10),
+		cpusharer.NewFifoCpuSharer())
 	// host1, host2, host3 marked active
 	// 2 values to AnApp:/foo on host1, host2 and host3
 	// 3rd value to anApp:/foo on host1, host2 only
@@ -619,7 +624,8 @@ func TestHighPriorityEviction(t *testing.T) {
 	// 9 values
 	appStatus = NewApplicationStatuses(
 		appList,
-		newStore(t, "TestHighPriorityEviction2", 1, 6, 0.0, 10))
+		newStore(t, "TestHighPriorityEviction2", 1, 6, 0.0, 10),
+		cpusharer.NewFifoCpuSharer())
 	// host1, host2, host3 marked active
 	// 3 values to AnApp:/foo on host1, host2 and host3
 	// host1 and host2 only marked active

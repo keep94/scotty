@@ -34,14 +34,6 @@ import (
 )
 
 var (
-	fPollCount = flag.Uint(
-		"concurrentPolls",
-		0,
-		"Maximum number of concurrent polls. 0 means no limit.")
-	fConnectionCount = flag.Uint(
-		"connectionCount",
-		collector.ConcurrentConnects(),
-		"Maximum number of concurrent connections")
 	fCisEndpoint = flag.String(
 		"cisEndpoint",
 		"",
@@ -328,8 +320,6 @@ func startCollector(
 	metricNameAdder suggest.Adder,
 	memoryChecker memoryCheckerType,
 	logger *log.Logger) {
-	collector.SetConcurrentPolls(*fPollCount)
-	collector.SetConcurrentConnects(*fConnectionCount)
 
 	sweepDurationDist := tricorder.NewGeometricBucketer(1, 100000.0).NewCumulativeDistribution()
 	collectionBucketer := tricorder.NewGeometricBucketer(1e-4, 100.0)

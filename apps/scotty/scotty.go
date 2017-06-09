@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/Dominator/lib/logbuf"
 	"github.com/Symantec/Dominator/lib/mdb"
 	"github.com/Symantec/Dominator/lib/mdb/mdbd"
@@ -36,6 +37,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+)
+
+var (
+	kSharer = cpusharer.NewFifoCpuSharer()
 )
 
 var (
@@ -181,7 +186,7 @@ func createApplicationStats(
 	if err := astore.RegisterMetrics(dirSpec); err != nil {
 		log.Fatal(err)
 	}
-	stats := datastructs.NewApplicationStatuses(appList, astore)
+	stats := datastructs.NewApplicationStatuses(appList, astore, kSharer)
 	var mdbChannel <-chan *mdb.Mdb
 	if *fMdbLoadTesting > 0 {
 		mdbChannel = loadTestMdbChannel(*fMdbLoadTesting)

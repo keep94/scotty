@@ -1,6 +1,7 @@
 package datastructs_test
 
 import (
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/Dominator/lib/mdb"
 	"github.com/Symantec/scotty"
 	"github.com/Symantec/scotty/datastructs"
@@ -22,7 +23,7 @@ func TestEndpointData(t *testing.T) {
 		Convey("ScottyCloudWatchTest and ScottyCloudHealthTest tags set", func() {
 			app := &datastructs.ApplicationStatus{
 				EndpointId: scotty.NewEndpointWithConnector(
-					"host1", 1, kSources),
+					"host1", 1, kSources, cpusharer.NewFifoCpuSharer()),
 				Aws: &mdb.AwsMetadata{
 					AccountId:  "2468",
 					InstanceId: "1357",
@@ -53,7 +54,7 @@ func TestEndpointData(t *testing.T) {
 		Convey("With accountId and instanceId", func() {
 			app := &datastructs.ApplicationStatus{
 				EndpointId: scotty.NewEndpointWithConnector(
-					"host1", 1, kSources),
+					"host1", 1, kSources, cpusharer.NewFifoCpuSharer()),
 				Aws: &mdb.AwsMetadata{
 					AccountId:  "2468",
 					InstanceId: "1357",

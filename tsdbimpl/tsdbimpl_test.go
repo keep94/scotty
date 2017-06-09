@@ -1,6 +1,7 @@
 package tsdbimpl_test
 
 import (
+	"github.com/Symantec/Dominator/lib/cpusharer"
 	"github.com/Symantec/Dominator/lib/mdb"
 	"github.com/Symantec/scotty/datastructs"
 	"github.com/Symantec/scotty/metrics"
@@ -60,7 +61,8 @@ func TestAPI(t *testing.T) {
 	appStatus := datastructs.NewApplicationStatuses(
 		appList,
 		newStore(
-			t, "TestAPI", 2, 100, 1.0, 10))
+			t, "TestAPI", 2, 100, 1.0, 10),
+		cpusharer.NewFifoCpuSharer())
 	appStatus.MarkHostsActiveExclusively(
 		100.0,
 		toMachines([]string{"host1", "host2", "host3", "host4", "host5"}))

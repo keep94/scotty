@@ -1,62 +1,19 @@
 package scotty
 
 import (
+	"github.com/Symantec/Dominator/lib/cpusharer"
+	"github.com/Symantec/Dominator/lib/net"
 	"github.com/Symantec/scotty/lib/preference"
 	"github.com/Symantec/scotty/metrics"
 	"github.com/Symantec/scotty/sources"
-	"runtime"
+	gonet "net"
 	"strings"
-	"syscall"
 	"time"
 )
 
 const (
 	kPreferenceMemory = 100
 )
-
-var (
-	concurrentConnects = allowedConnectionCount()
-	connectSemaphore   = make(chan bool, concurrentConnects)
-	concurrentPolls    = allowedPollCount()
-	pollSemaphore      = make(chan bool, concurrentPolls)
-)
-
-func allowedPollCount() uint {
-	numCpus := runtime.NumCPU()
-	if numCpus < 1 {
-		numCpus = 1
-	}
-	return uint(numCpus * 2)
-}
-
-func allowedConnectionCount() uint {
-	var rlim syscall.Rlimit
-	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rlim); err != nil {
-		panic(err)
-	}
-	if rlim.Cur <= 50 {
-		return 1
-	}
-	return uint(rlim.Cur - 50)
-}
-
-func setConcurrentConnects(x uint) {
-	close(connectSemaphore)
-	concurrentConnects = x
-	connectSemaphore = make(chan bool, concurrentConnects)
-}
-
-func setConcurrentPolls(x uint) {
-	if pollSemaphore != nil {
-		close(pollSemaphore)
-	}
-	concurrentPolls = x
-	if x > 0 {
-		pollSemaphore = make(chan bool, concurrentPolls)
-	} else {
-		pollSemaphore = nil
-	}
-}
 
 func waitingToConnect(sweepStartTime time.Time) *State {
 	return &State{
@@ -159,12 +116,23 @@ func ignorePastStar(hostName string) string {
 	return hostName[:idx]
 }
 
+type withDialer interface {
+	NewResourceWithDialer(host string, port uint, dialer net.Dialer) sources.Resource
+}
+
 func newConnector(
 	connector sources.Connector,
 	host string,
-	port uint) *connectorType {
+	port uint,
+	sharer cpusharer.CpuSharer) *connectorType {
 	conn := asResourceConnector(connector)
-	resource := conn.NewResource(ignorePastStar(host), port)
+	var resource sources.Resource
+	if withDialer, ok := conn.(withDialer); ok {
+		dialer := net.NewCpuSharingDialer(&gonet.Dialer{}, sharer)
+		resource = withDialer.NewResourceWithDialer(ignorePastStar(host), port, dialer)
+	} else {
+		resource = conn.NewResource(ignorePastStar(host), port)
+	}
 	return &connectorType{conn: conn, resource: resource}
 }
 
@@ -177,15 +145,16 @@ func (c *connectorType) Connect() (sources.Poller, error) {
 }
 
 func newEndpoint(
-	host string, port uint, connectors []sources.Connector) *Endpoint {
+	host string, port uint, connectors []sources.Connector, sharer *cpusharer.FifoCpuSharer) *Endpoint {
 	conns := make([]*connectorType, len(connectors))
 	for i := range conns {
-		conns[i] = newConnector(connectors[i], host, port)
+		conns[i] = newConnector(connectors[i], host, port, sharer)
 	}
 	return &Endpoint{
 		host:                host,
 		port:                port,
 		connectors:          conns,
+		sharer:              sharer,
 		onePollAtATime:      make(chan bool, 1),
 		connectorPreference: preference.New(len(conns), kPreferenceMemory),
 	}
@@ -206,12 +175,6 @@ func (e *Endpoint) pollWithConnectorIndex(
 	defer conn.Close()
 	state = state.goToWaitingToPoll(time.Now())
 	e.logState(state, logger)
-	if pollSemaphore != nil {
-		pollSemaphore <- true
-		defer func() {
-			<-pollSemaphore
-		}()
-	}
 	state = state.goToPolling(time.Now())
 	e.logState(state, logger)
 	metrics, err := conn.Poll()
@@ -230,13 +193,9 @@ func (e *Endpoint) poll(sweepStartTime time.Time, logger Logger) {
 	case e.onePollAtATime <- true:
 		state := waitingToConnect(sweepStartTime)
 		e.logState(state, logger)
-		connectSemaphore <- true
-		go func(state *State) {
+		e.sharer.Go(func() {
 			defer func() {
 				<-e.onePollAtATime
-			}()
-			defer func() {
-				<-connectSemaphore
 			}()
 			indexes := e.connectionIndexes()
 			for _, index := range indexes {
@@ -244,7 +203,7 @@ func (e *Endpoint) poll(sweepStartTime time.Time, logger Logger) {
 					return
 				}
 			}
-		}(state)
+		})
 	default:
 		return
 	}
