@@ -88,6 +88,7 @@ func (t *totalCountType) Update(
 type visitorMetricsType struct {
 	TimeLeft        time.Duration
 	PercentCaughtUp float64
+	ValuesSkipped   bool
 	Blocked         bool
 }
 
@@ -117,6 +118,12 @@ func (v *visitorMetricsStoreType) SetPercentCaughtUp(percentCaughtUp float64) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	v.metrics.PercentCaughtUp = percentCaughtUp
+}
+
+func (v *visitorMetricsStoreType) SetValuesSkipped(valuesSkipped bool) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.metrics.ValuesSkipped = valuesSkipped
 }
 
 func (v *visitorMetricsStoreType) MaybeIncreaseTimeLeft(
@@ -249,6 +256,9 @@ func (p *pstoreHandlerType) Visit(
 	p.percentCaughtUp.Add(iteratorData.PercentCaughtUp)
 	p.visitorMetricsStore.MaybeIncreaseTimeLeft(
 		duration.FromFloat(iteratorData.RemainingValueInSeconds))
+	if iteratorData.Skipped {
+		p.visitorMetricsStore.SetValuesSkipped(true)
+	}
 	return nil
 }
 
@@ -342,6 +352,13 @@ func (p *pstoreHandlerType) RegisterMetrics() (err error) {
 		data.ValuesNotWritten,
 		units.None,
 		"Number of values not written to persistent storage"); err != nil {
+		return
+	}
+	if err = group.RegisterMetric(
+		fmt.Sprintf("writer/%s/valuesSkipped", p.Name()),
+		&visitorData.ValuesSkipped,
+		units.None,
+		"If true, some metric values were skipped because writing fell too far behind"); err != nil {
 		return
 	}
 	if err = group.RegisterMetric(
