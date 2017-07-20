@@ -692,6 +692,11 @@ func (f *FloatVar) Add(a FloatVar) {
 	f.Count += a.Count
 }
 
+type IteratorData struct {
+	RemainingValueInSeconds float64
+	PercentCaughtUp         FloatVar
+}
+
 // NamedIteratorForEndpoint returns an iterator for the given name that
 // iterates over metric values for all known timestamps for the given endpoint.
 // Since the name is used to track progress of iterating over the given
@@ -719,8 +724,7 @@ func (f *FloatVar) Add(a FloatVar) {
 func (s *Store) NamedIteratorForEndpoint(
 	name string,
 	endpointId interface{},
-	maxFrames uint) (
-	iterator NamedIterator, remainingValuesInSeconds float64, percentCaughtUp FloatVar) {
+	maxFrames uint) (iterator NamedIterator, data IteratorData) {
 	return s.namedIteratorForEndpoint(name, endpointId, int(maxFrames))
 }
 
@@ -778,7 +782,7 @@ func (s *Store) NamedIteratorForEndpointRollUp(
 	dur time.Duration,
 	maxFrames uint,
 	strategy MetricGroupingStrategy) (
-	iterator NamedIterator, remainingValuesInSeconds float64, percentCaughtUp FloatVar) {
+	iterator NamedIterator, data IteratorData) {
 	return s.namedIteratorForEndpointRollUp(
 		name, endpointId, dur, int(maxFrames), strategy)
 }

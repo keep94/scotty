@@ -74,7 +74,7 @@ func (t *totalCountType) Update(
 	theStore *store.Store, endpointId interface{}) {
 	var r store.Record
 	var tempCount uint64
-	iterator, _, _ := createNamedIterator(
+	iterator, _ := createNamedIterator(
 		theStore, endpointId, t.iteratorName(), t.rollUpSpan)
 	for iterator.Next(&r) {
 		if t.metrics.Filter(&r) {
@@ -224,7 +224,7 @@ func (p *pstoreHandlerType) Visit(
 	hostName := endpointId.(*collector.Endpoint).HostName()
 	port := endpointId.(*collector.Endpoint).Port()
 	appName := p.appList.ByPort(port).Name()
-	iterator, timeLeft, percentCaughtUp := p.namedIterator(theStore, endpointId)
+	iterator, iteratorData := p.namedIterator(theStore, endpointId)
 	if p.maybeNilCoord != nil {
 		// aMetricStore from the consumer exposes the same filtering that
 		// the consumer does internally.
@@ -243,11 +243,12 @@ func (p *pstoreHandlerType) Visit(
 			aMetricStore.RemoveFromRecordCount)
 	}
 	p.consumer.Write(iterator, hostName, appName)
-	if timeLeft > p.secondsBehind {
-		p.secondsBehind = timeLeft
+	if iteratorData.RemainingValueInSeconds > p.secondsBehind {
+		p.secondsBehind = iteratorData.RemainingValueInSeconds
 	}
-	p.percentCaughtUp.Add(percentCaughtUp)
-	p.visitorMetricsStore.MaybeIncreaseTimeLeft(duration.FromFloat(timeLeft))
+	p.percentCaughtUp.Add(iteratorData.PercentCaughtUp)
+	p.visitorMetricsStore.MaybeIncreaseTimeLeft(
+		duration.FromFloat(iteratorData.RemainingValueInSeconds))
 	return nil
 }
 
@@ -422,7 +423,7 @@ func (p *pstoreHandlerType) iteratorName() string {
 
 func (p *pstoreHandlerType) namedIterator(
 	theStore *store.Store,
-	endpointId interface{}) (store.NamedIterator, float64, store.FloatVar) {
+	endpointId interface{}) (store.NamedIterator, store.IteratorData) {
 	var attributes pstore.ConsumerAttributes
 	p.Attributes(&attributes)
 	return createNamedIterator(
@@ -436,7 +437,7 @@ func createNamedIterator(
 	theStore *store.Store,
 	endpointId interface{},
 	iteratorName string,
-	rollUpSpan time.Duration) (store.NamedIterator, float64, store.FloatVar) {
+	rollUpSpan time.Duration) (store.NamedIterator, store.IteratorData) {
 	if rollUpSpan == 0 {
 		return theStore.NamedIteratorForEndpoint(
 			iteratorName,

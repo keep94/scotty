@@ -123,7 +123,7 @@ func (c *timeSeriesCollectionType) NamedIteratorInfo(name string) (
 func (c *timeSeriesCollectionType) NewNamedIterator(
 	name string,
 	maxFrames int,
-	strategy MetricGroupingStrategy) (NamedIterator, float64, FloatVar) {
+	strategy MetricGroupingStrategy) (NamedIterator, IteratorData) {
 	startTimes,
 		completed,
 		timestampSeries := c.NamedIteratorInfo(name)
@@ -145,7 +145,7 @@ func (c *timeSeriesCollectionType) NewNamedIterator(
 		strategy:             strategy,
 	}
 	timeLeft, percentCaughtUp := timeLeft(timestampSeries, timesByGroup)
-	return result, timeLeft, percentCaughtUp
+	return result, IteratorData{timeLeft, percentCaughtUp}
 }
 
 func timeLeft(
@@ -179,7 +179,7 @@ func (c *timeSeriesCollectionType) NewNamedIteratorRollUp(
 	duration float64,
 	maxFrames int,
 	strategy MetricGroupingStrategy) (
-	NamedIterator, float64, FloatVar) {
+	NamedIterator, IteratorData) {
 	startTimes,
 		completed,
 		timestampSeries := c.NamedIteratorInfo(name)
@@ -206,7 +206,7 @@ func (c *timeSeriesCollectionType) NewNamedIteratorRollUp(
 		interval: duration,
 	}
 	timeLeft, percentCaughtUp := timeLeft(timestampSeries, timesByGroup)
-	return result, timeLeft, percentCaughtUp
+	return result, IteratorData{timeLeft, percentCaughtUp}
 }
 
 func (c *timeSeriesCollectionType) StartAtBeginning(names []string) {
