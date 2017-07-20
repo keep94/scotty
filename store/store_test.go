@@ -226,12 +226,89 @@ func TestVisitorError(t *testing.T) {
 	assertValueEquals(t, kError, aStore.VisitAllEndpoints(&ev))
 }
 
+func addSomeMetrics(
+	aStore *store.Store,
+	endpoint interface{},
+	startTime float64,
+	count int) {
+	aMetric := metrics.SimpleList{
+		{
+			Path:        "/foo/bar",
+			Description: "A description",
+		},
+	}
+	for i := 0; i < count; i++ {
+		aMetric[0].Value = startTime
+		aStore.AddBatch(endpoint, startTime, aMetric.Sorted())
+		startTime += 1.0
+	}
+}
+
+func TestSkippedFlag(t *testing.T) {
+	aStore := newStore(
+		t, "TestSkippedFlag", 1, 9, 1.0, 10)
+	aStore.RegisterEndpoint(kEndpoint0)
+	addSomeMetrics(aStore, kEndpoint0, 100.0, 10)
+	iterator, iteratorData := aStore.NamedIteratorForEndpoint(
+		"foo", kEndpoint0, 2)
+	assertValueEquals(t, false, iteratorData.Skipped)
+	var r store.Record
+	var read bool
+	for iterator.Next(&r) {
+		read = true
+	}
+	assertValueEquals(t, true, read)
+	iterator.Commit()
+	_, iteratorData = aStore.NamedIteratorForEndpoint("foo", kEndpoint0, 2)
+	assertValueEquals(t, false, iteratorData.Skipped)
+	// Add more values to force data to be evicted out
+	addSomeMetrics(aStore, kEndpoint0, 200.0, 10)
+	_, iteratorData = aStore.NamedIteratorForEndpoint("foo", kEndpoint0, 2)
+	assertValueEquals(t, true, iteratorData.Skipped)
+}
+
+func TestSkippedFlagRollUP(t *testing.T) {
+	aStore := newStore(
+		t, "TestSkippedFlagRollUP", 1, 9, 1.0, 10)
+	aStore.RegisterEndpoint(kEndpoint0)
+	addSomeMetrics(aStore, kEndpoint0, 100.0, 10)
+	iterator, iteratorData := aStore.NamedIteratorForEndpointRollUp(
+		"foo",
+		kEndpoint0,
+		2*time.Second,
+		2,
+		store.GroupMetricByPathAndNumeric)
+	assertValueEquals(t, false, iteratorData.Skipped)
+	var r store.Record
+	var read bool
+	for iterator.Next(&r) {
+		read = true
+	}
+	assertValueEquals(t, true, read)
+	iterator.Commit()
+	_, iteratorData = aStore.NamedIteratorForEndpointRollUp(
+		"foo",
+		kEndpoint0,
+		2*time.Second,
+		2,
+		store.GroupMetricByPathAndNumeric)
+	assertValueEquals(t, false, iteratorData.Skipped)
+	// Add more values to force data to be evicted out
+	addSomeMetrics(aStore, kEndpoint0, 200.0, 10)
+	_, iteratorData = aStore.NamedIteratorForEndpointRollUp(
+		"foo",
+		kEndpoint0,
+		2*time.Second,
+		2,
+		store.GroupMetricByPathAndNumeric)
+	assertValueEquals(t, true, iteratorData.Skipped)
+}
+
 func TestAggregateAppenderAndVisitor(t *testing.T) {
 	aStore := newStore(
 		t, "TestAggregateAppenderAndVisitor", 10, 100, 1.0, 10)
 	aStore.RegisterEndpoint(kEndpoint0)
 	aStore.RegisterEndpoint(kEndpoint1)
-
 	aMetric := metrics.SimpleList{
 		{
 			Path:        "/foo/bar",

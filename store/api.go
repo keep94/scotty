@@ -695,6 +695,7 @@ func (f *FloatVar) Add(a FloatVar) {
 type IteratorData struct {
 	RemainingValueInSeconds float64
 	PercentCaughtUp         FloatVar
+	Skipped                 bool
 }
 
 // NamedIteratorForEndpoint returns an iterator for the given name that

@@ -129,10 +129,14 @@ func (c *timeSeriesCollectionType) NewNamedIterator(
 		timestampSeries := c.NamedIteratorInfo(name)
 	allTimeSeries := c.TsAll()
 	timesByGroup := make(map[int][]float64, len(timestampSeries))
+	var skipped bool
 	for _, series := range timestampSeries {
 		groupId := series.GroupId()
 		timesByGroup[groupId] = series.FindAfter(
 			startTimes[groupId], maxFrames)
+		if startTimes[groupId] > 0.0 && len(timesByGroup[groupId]) > 0 && timesByGroup[groupId][0] == series.Earliest() {
+			skipped = true
+		}
 	}
 	strategy.orderedPartition(allTimeSeries)
 	result := &namedIteratorType{
@@ -145,7 +149,7 @@ func (c *timeSeriesCollectionType) NewNamedIterator(
 		strategy:             strategy,
 	}
 	timeLeft, percentCaughtUp := timeLeft(timestampSeries, timesByGroup)
-	return result, IteratorData{timeLeft, percentCaughtUp}
+	return result, IteratorData{timeLeft, percentCaughtUp, skipped}
 }
 
 func timeLeft(
@@ -185,9 +189,13 @@ func (c *timeSeriesCollectionType) NewNamedIteratorRollUp(
 		timestampSeries := c.NamedIteratorInfo(name)
 	allTimeSeries := c.TsAll()
 	timesByGroup := make(map[int][]float64, len(timestampSeries))
+	var skipped bool
 	for _, series := range timestampSeries {
 		groupId := series.GroupId()
 		nextTimes := series.FindAfter(startTimes[groupId], 0)
+		if startTimes[groupId] > 0.0 && len(nextTimes) > 0 && nextTimes[0] == series.Earliest() {
+			skipped = true
+		}
 		chopForRollUp(duration, maxFrames, &nextTimes)
 		timesByGroup[groupId] = nextTimes
 	}
@@ -206,7 +214,7 @@ func (c *timeSeriesCollectionType) NewNamedIteratorRollUp(
 		interval: duration,
 	}
 	timeLeft, percentCaughtUp := timeLeft(timestampSeries, timesByGroup)
-	return result, IteratorData{timeLeft, percentCaughtUp}
+	return result, IteratorData{timeLeft, percentCaughtUp, skipped}
 }
 
 func (c *timeSeriesCollectionType) StartAtBeginning(names []string) {
