@@ -13,6 +13,10 @@ var (
 	ErrUnsupported        = errors.New("qlutils: Unsupported")
 )
 
+func AggregationType(stmt influxql.Statement) (lowercase string, err error) {
+	return aggregationType(stmt)
+}
+
 // NewQuery creates a new query instance from a string substituting currentTime
 // for now().
 func NewQuery(ql string, currentTime time.Time) (*influxql.Query, error) {
