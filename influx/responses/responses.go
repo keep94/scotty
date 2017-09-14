@@ -10,6 +10,7 @@ import (
 	"github.com/influxdata/influxdb/models"
 	"reflect"
 	"sort"
+	"strconv"
 )
 
 const (
@@ -548,4 +549,113 @@ func tagKeys(m map[string]string) (result []string) {
 	}
 	sort.Strings(result)
 	return
+}
+
+func piecewiseDivide(lhs, rhs [][]interface{}) (
+	[][]interface{}, error) {
+	var result [][]interface{}
+	lindex, rindex := 0, 0
+	llen, rlen := len(lhs), len(rhs)
+	for lindex < llen && rindex < rlen {
+		lts := toInt64(lhs[lindex][0])
+		rts := toInt64(rhs[rindex][0])
+		if lts < rts {
+			lindex++
+		} else if lts > rts {
+			rindex++
+		} else { // timestamps are equal, divide
+			lvalue, ok := lhs[lindex][1].(json.Number)
+			if !ok {
+				return nil, fmt.Errorf(
+					"Time wrong format %v", lhs[lindex][0])
+			}
+			rvalue, ok := rhs[rindex][1].(json.Number)
+			if !ok {
+				return nil, fmt.Errorf(
+					"Time wrong format %v", rhs[rindex][0])
+			}
+			lv, err := lvalue.Float64()
+			if err != nil {
+				return nil, err
+			}
+			rv, err := rvalue.Float64()
+			if err != nil {
+				return nil, err
+			}
+			if rv != 0.0 {
+				quotient := lv / rv
+				quotientvalue := json.Number(
+					strconv.FormatFloat(quotient, 'g', -1, 64))
+				result = append(
+					result, []interface{}{lhs[lindex][0], quotientvalue})
+			}
+			lindex++
+			rindex++
+		}
+	}
+	return result, nil
+}
+
+// sumTogether sums up timeSeriesList into a single time series.
+// Values falling on the same timestamp get added together when merged.
+// [x][0] is always timestamp; [x][1] is always value of the xth row of
+// time series
+func sumTogether(timeSeriesList ...[][]interface{}) ([][]interface{}, error) {
+	// TODO: write this better
+	var result [][]interface{}
+	for _, timeSeries := range timeSeriesList {
+		var err error
+		result, err = sumTogether2(result, timeSeries)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+func sumTogether2(lhs, rhs [][]interface{}) ([][]interface{}, error) {
+	var result [][]interface{}
+	lindex, rindex := 0, 0
+	llen, rlen := len(lhs), len(rhs)
+	for lindex < llen && rindex < rlen {
+		lts := toInt64(lhs[lindex][0])
+		rts := toInt64(rhs[rindex][0])
+		if lts < rts {
+			result = append(result, lhs[lindex])
+			lindex++
+		} else if lts > rts {
+			result = append(result, rhs[rindex])
+			rindex++
+		} else { // timestamps are equal, add them
+			lvalue, ok := lhs[lindex][1].(json.Number)
+			if !ok {
+				return nil, fmt.Errorf(
+					"Time wrong format %v", lhs[lindex][0])
+			}
+			rvalue, ok := rhs[rindex][1].(json.Number)
+			if !ok {
+				return nil, fmt.Errorf(
+					"Time wrong format %v", rhs[rindex][0])
+			}
+			lv, err := lvalue.Float64()
+			if err != nil {
+				return nil, err
+			}
+			rv, err := rvalue.Float64()
+			if err != nil {
+				return nil, err
+			}
+			sum := lv + rv
+			sumvalue := json.Number(strconv.FormatFloat(sum, 'g', -1, 64))
+			result = append(result, []interface{}{lhs[lindex][0], sumvalue})
+			lindex++
+			rindex++
+		}
+	}
+	if lindex < llen {
+		result = append(result, lhs[lindex:]...)
+	} else {
+		result = append(result, rhs[rindex:]...)
+	}
+	return result, nil
 }
