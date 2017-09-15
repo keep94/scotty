@@ -13,6 +13,15 @@ var (
 	ErrUnsupported        = errors.New("qlutils: Unsupported")
 )
 
+func SingleQuery(stmt influxql.Statement) *influxql.Query {
+	return &influxql.Query{Statements: influxql.Statements{stmt}}
+}
+
+func WithAggregationType(stmt influxql.Statement, aggregation string) (
+	influxql.Statement, error) {
+	return withAggregationType(stmt, aggregation)
+}
+
 func AggregationType(stmt influxql.Statement) (lowercase string, err error) {
 	return aggregationType(stmt)
 }
