@@ -1,6 +1,8 @@
 package responses
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -658,4 +661,119 @@ func sumTogether2(lhs, rhs [][]interface{}) ([][]interface{}, error) {
 		result = append(result, rhs[rindex:]...)
 	}
 	return result, nil
+}
+
+func encodeTags(tags map[string]string) string {
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err := e.Encode(tags)
+	if err != nil {
+		panic(err)
+	}
+	return b.String()
+}
+
+func decodeTags(encoded string) (result map[string]string, err error) {
+	d := gob.NewDecoder(strings.NewReader(encoded))
+	err = d.Decode(&result)
+	return
+}
+
+func columnsEqual(lhs, rhs []string) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+	for i := range lhs {
+		if lhs[i] != rhs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func divideRows(lhs, rhs []models.Row, columns []string) (
+	result []models.Row, err error) {
+
+	// defensive copy since we hold onto columns in returned rows
+	columnsCopy := make([]string, len(columns))
+	copy(columnsCopy, columns)
+
+	type nameTagsType struct {
+		Name string
+		Tags string
+	}
+
+	runningTotals := make(map[nameTagsType][][]interface{})
+	for _, row := range lhs {
+		index := nameTagsType{Name: row.Name, Tags: encodeTags(row.Tags)}
+		runningTotals[index] = row.Values
+	}
+	var quotientRows rowListType
+	for _, row := range rhs {
+		index := nameTagsType{Name: row.Name, Tags: encodeTags(row.Tags)}
+		lvalues, ok := runningTotals[index]
+		if ok {
+			var quotient [][]interface{}
+			quotient, err = piecewiseDivide(lvalues, row.Values)
+			if len(quotient) > 0 {
+				quotientRows = append(quotientRows, models.Row{
+					Name:    row.Name,
+					Tags:    row.Tags,
+					Columns: columnsCopy,
+					Values:  quotient})
+			}
+		}
+	}
+	sort.Sort(quotientRows)
+	return quotientRows, nil
+}
+
+func sumRowsTogether(rowGroups ...[]models.Row) (result []models.Row, err error) {
+	var rowList []models.Row
+	for _, rowGroup := range rowGroups {
+		rowList = append(rowList, rowGroup...)
+	}
+
+	if len(rowList) == 0 {
+		return nil, nil
+	}
+
+	// sanity checks
+	for _, row := range rowList[1:] {
+		if !columnsEqual(rowList[0].Columns, row.Columns) {
+			err = errors.New("Columns don't match")
+			return
+		}
+	}
+
+	type nameTagsType struct {
+		Name string
+		Tags string
+	}
+
+	runningTotals := make(map[nameTagsType][][]interface{})
+	for _, row := range rowList {
+		index := nameTagsType{Name: row.Name, Tags: encodeTags(row.Tags)}
+		var total [][]interface{}
+		total, err = sumTogether2(runningTotals[index], row.Values)
+		if err != nil {
+			return
+		}
+		runningTotals[index] = total
+	}
+	var summedRows rowListType
+	for nameTag, timeSeries := range runningTotals {
+		sumRow := models.Row{
+			Name:    nameTag.Name,
+			Columns: rowList[0].Columns,
+			Values:  timeSeries,
+		}
+		sumRow.Tags, err = decodeTags(nameTag.Tags)
+		if err != nil {
+			return
+		}
+		summedRows = append(summedRows, sumRow)
+	}
+	sort.Sort(summedRows)
+	return summedRows, nil
 }
