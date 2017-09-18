@@ -777,3 +777,13 @@ func sumRowsTogether(rowGroups ...[]models.Row) (result []models.Row, err error)
 	sort.Sort(summedRows)
 	return summedRows, nil
 }
+
+func extractRows(response *client.Response) ([]models.Row, error) {
+	if err := response.Error(); err != nil {
+		return nil, err
+	}
+	if l := len(response.Results); l != 1 {
+		return nil, fmt.Errorf("Expected 1 result, got %d", l)
+	}
+	return response.Results[0].Series, nil
+}

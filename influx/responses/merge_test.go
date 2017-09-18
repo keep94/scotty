@@ -133,7 +133,7 @@ func TestDivideRows(t *testing.T) {
 				},
 			},
 		}
-		quotient, err := divideRows(lhs, rhs, []string{"time", "mean"})
+		quotient, err := DivideRows(lhs, rhs, []string{"time", "mean"})
 		So(err, ShouldBeNil)
 		So(quotient, ShouldResemble, []models.Row{
 			{
@@ -206,7 +206,7 @@ func TestSumRowsTogether(t *testing.T) {
 				},
 			},
 		}
-		summedRows, err := sumRowsTogether(rowGroup1, rowGroup2)
+		summedRows, err := SumRowsTogether(rowGroup1, rowGroup2)
 		So(err, ShouldBeNil)
 		So(summedRows, ShouldResemble, []models.Row{
 			{
@@ -256,7 +256,7 @@ func TestSumRowsTogether(t *testing.T) {
 				},
 			},
 		}
-		summedRows, err := sumRowsTogether(rowGroup1, rowGroup2)
+		summedRows, err := SumRowsTogether(rowGroup1, rowGroup2)
 		So(err, ShouldBeNil)
 		So(summedRows, ShouldResemble, []models.Row{
 			{
